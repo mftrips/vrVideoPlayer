@@ -80,6 +80,7 @@ class SyncListener {
     public class SyncListenerThread extends Thread {
         Socket socket;
         private PrintStream printStream;
+        private boolean isPaused = true;
 
         @Override
         public void run() {
@@ -102,7 +103,9 @@ class SyncListener {
                         pause();
                     }
                     while (!isDestroyed) {
-                        update();
+                        if (!isPaused) {
+                            update();
+                        }
                         TimeUnit.SECONDS.sleep(1);
                     }
                     pause();
@@ -119,6 +122,7 @@ class SyncListener {
             if (socket != null && filename != null) {
                 Log.d(TAG, "Sending filename: " + filename);
                 printStream.println("C " + filename);
+                isPaused = false;
             }
         }
 
@@ -127,6 +131,7 @@ class SyncListener {
                 double position = (double) mediaPlayer.getCurrentPosition() / 1000;
                 Log.d(TAG, "Sending position: " + position);
                 printStream.println("P " + position);
+                isPaused = false;
             }
         }
 
@@ -135,6 +140,7 @@ class SyncListener {
                 Log.d(TAG, "Sending pause");
                 printStream.println("S");
             }
+            isPaused = true;
         }
 
         void close() {
@@ -147,6 +153,7 @@ class SyncListener {
                     }
                 }
             }
+            isPaused = true;
         }
     }
 }

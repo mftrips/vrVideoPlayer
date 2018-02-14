@@ -19,8 +19,6 @@ package com.github.mftrips.vrvideoplayer;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -35,12 +33,6 @@ import android.view.Surface;
 import com.github.mftrips.vrvideoplayer.rendering.Mesh;
 import com.github.mftrips.vrvideoplayer.rendering.SceneRenderer;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.net.URLConnection;
-import java.security.InvalidParameterException;
-
 /**
  * MediaLoader takes an Intent from the user and loads the specified media file.
  * <p>
@@ -49,14 +41,12 @@ import java.security.InvalidParameterException;
  * complete.
  * <p>
  * <p>The Intent used to launch the app is parsed by this class and the extra & data fields are
- * extracted. The data field should have a URI useable by {@link MediaPlayer} or
- * {@link BitmapFactory}. There should also be an integer extra matching one of the MEDIA_* types in
- * {@link Mesh}.
+ * extracted. The data field should have a URI useable by {@link MediaPlayer}.
  */
 class MediaLoader {
     private static final String TAG = "MediaLoader";
 
-    private static final String MEDIA_FORMAT_KEY = "stereoFormat";
+    private static final int DEFAULT_SURFACE_WIDTH_PX = 2048;
     private static final int DEFAULT_SURFACE_HEIGHT_PX = 2048;
 
     /**
@@ -68,19 +58,17 @@ class MediaLoader {
      * These should be configured based on the video type. But this sample assumes 360 video.
      */
     private static final int DEFAULT_SPHERE_VERTICAL_DEGREES = 180;
-    private static final int DEFAULT_SPHERE_HORIZONTAL_DEGREES = 360;
+    private static final int DEFAULT_SPHERE_HORIZONTAL_DEGREES = 180;
 
     /**
      * The 360 x 180 sphere has 15 degree quads. Increase these if lines in your video look wavy.
      */
     private static final int DEFAULT_SPHERE_ROWS = 12;
-    private static final int DEFAULT_SPHERE_COLUMNS = 24;
+    private static final int DEFAULT_SPHERE_COLUMNS = 12;
     private final Context context;
     // This should be set or cleared in a synchronized manner.
     private MediaPlayer mediaPlayer;
-    // Supports for loading images.
-    private Bitmap mediaImage;
-    // If the video or image fails to load, a placeholder panorama is rendered with error text.
+    // If the video fails to load, a placeholder panorama is rendered with error text.
     private String errorText;
     private SyncListener syncListener;
     // Due to the slow loading media times, it's possible to tear down the app before mediaPlayer is
@@ -93,6 +81,21 @@ class MediaLoader {
     private SceneRenderer sceneRenderer;
     // The displaySurface is configured after both GL initialization and media loading.
     private Surface displaySurface;
+
+    enum State {
+        PLAYING,
+        PAUSED
+    }
+
+    enum Direction {
+        FORWARD,
+        BACKWARD
+    }
+
+    enum Magnitude {
+        SMALL,
+        LARGE
+    }
 
     MediaLoader(Context context) {
         this.context = context;
@@ -189,8 +192,7 @@ class MediaLoader {
             return;
         }
 
-        if ((errorText == null && mediaImage == null && mediaPlayer == null)
-                || sceneRenderer == null) {
+        if ((errorText == null && mediaPlayer == null) || sceneRenderer == null) {
             // Wait for everything to be initialized.
             return;
         }
@@ -205,20 +207,6 @@ class MediaLoader {
             // Start playback.
             mediaPlayer.setLooping(true);
             mediaPlayer.start();
-        } else if (mediaImage != null) {
-            // For images, acquire the displaySurface and draw the bitmap to it. Since our Mesh
-            // class uses an GL_TEXTURE_EXTERNAL_OES texture, it's possible to perform this decoding
-            // and rendering of a bitmap in the background without stalling the GL thread. If the
-            // Mesh used a standard GL_TEXTURE_2D, then it's possible to stall the GL thread for
-            // 100+ ms during the glTexImage2D call when loading 4k x 4k panoramas and copying the
-            // bitmap's data.
-            displaySurface = sceneRenderer.createDisplay(
-                    mediaImage.getWidth(), mediaImage.getHeight(), mesh);
-            if (displaySurface != null) {
-                Canvas c = displaySurface.lockCanvas(null);
-                c.drawBitmap(mediaImage, 0, 0, null);
-                displaySurface.unlockCanvasAndPost(c);
-            }
         } else {
             // Handle the error case by creating a placeholder panorama.
             mesh = Mesh.createUvSphere(
@@ -226,9 +214,9 @@ class MediaLoader {
                     DEFAULT_SPHERE_VERTICAL_DEGREES, DEFAULT_SPHERE_HORIZONTAL_DEGREES,
                     Mesh.MEDIA_MONOSCOPIC);
 
-            // 4k x 2k is a good default resolution for monoscopic panoramas.
+            // 2k x 2k is a good default resolution for monoscopic panoramas.
             displaySurface = sceneRenderer.createDisplay(
-                    2 * DEFAULT_SURFACE_HEIGHT_PX, DEFAULT_SURFACE_HEIGHT_PX, mesh);
+                    DEFAULT_SURFACE_WIDTH_PX, DEFAULT_SURFACE_HEIGHT_PX, mesh);
             if (displaySurface != null) {
                 // Render placeholder grid and error text.
                 Canvas c = displaySurface.lockCanvas(null);
@@ -299,21 +287,6 @@ class MediaLoader {
         isDestroyed = true;
     }
 
-    enum State {
-        PLAYING,
-        PAUSED
-    }
-
-    enum Direction {
-        FORWARD,
-        BACKWARD
-    }
-
-    enum Magnitude {
-        SMALL,
-        LARGE
-    }
-
     /**
      * Helper class to media loading. This accesses the disk and decodes images so it needs to run
      * in the background.
@@ -330,46 +303,22 @@ class MediaLoader {
                 return null;
             }
 
-            // Extract the stereoFormat from the Intent's extras.
-            int stereoFormat = intent[0].getIntExtra(MEDIA_FORMAT_KEY, Mesh.MEDIA_MONOSCOPIC);
-            if (stereoFormat != Mesh.MEDIA_STEREO_LEFT_RIGHT
-                    && stereoFormat != Mesh.MEDIA_STEREO_TOP_BOTTOM) {
-                stereoFormat = Mesh.MEDIA_MONOSCOPIC;
-            }
-
             mesh = Mesh.createUvSphere(
                     SPHERE_RADIUS_METERS, DEFAULT_SPHERE_ROWS, DEFAULT_SPHERE_COLUMNS,
                     DEFAULT_SPHERE_VERTICAL_DEGREES, DEFAULT_SPHERE_HORIZONTAL_DEGREES,
-                    stereoFormat);
+                    Mesh.MEDIA_STEREOSCOPIC);
 
             // Based on the Intent's data, load the appropriate media from disk.
             Uri uri = intent[0].getData();
-            try {
-                syncListener.setFilename(uri.getLastPathSegment());
-                File file = new File(uri.getPath());
-                if (!file.exists()) {
-                    throw new FileNotFoundException();
+            syncListener.setFilename(uri.getLastPathSegment());
+            MediaPlayer mp = MediaPlayer.create(context, uri);
+            if (mp != null) {
+                synchronized (MediaLoader.this) {
+                    // This needs to be synchronized with the methods that could clear mediaPlayer.
+                    mediaPlayer = mp;
                 }
-
-                String type = URLConnection.guessContentTypeFromName(uri.getPath());
-                if (type == null) {
-                    throw new InvalidParameterException("Unknown file type: " + uri);
-                } else if (type.startsWith("image")) {
-                    // Decoding a large image can take 100+ ms.
-                    mediaImage = BitmapFactory.decodeFile(uri.getPath());
-                } else if (type.startsWith("video")) {
-                    MediaPlayer mp = MediaPlayer.create(context, uri);
-                    synchronized (MediaLoader.this) {
-                        // This needs to be synchronized with the methods that could clear
-                        // mediaPlayer.
-                        mediaPlayer = mp;
-                    }
-                } else {
-                    throw new InvalidParameterException("Unsupported MIME type: " + type);
-                }
-
-            } catch (IOException | InvalidParameterException e) {
-                errorText = String.format("Error loading file [%s]: %s", uri.getPath(), e);
+            } else {
+                errorText = String.format("Error loading %s", Uri.decode(uri.toString()));
                 Log.e(TAG, errorText);
             }
 

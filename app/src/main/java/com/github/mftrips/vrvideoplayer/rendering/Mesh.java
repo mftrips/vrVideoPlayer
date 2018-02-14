@@ -37,16 +37,9 @@ public final class Mesh {
     public static final int MEDIA_MONOSCOPIC = 0;
     /**
      * Stereo media where the left & right halves of the frame are rendered for the left & right
-     * eyes, respectively. If the stereo media is rendered in a non-VR display, only the left half
-     * is used.
+     * eyes, respectively.
      */
-    public static final int MEDIA_STEREO_LEFT_RIGHT = 1;
-    /**
-     * Stereo media where the top & bottom halves of the frame are rendered for the left & right
-     * eyes, respectively. If the stereo media is rendered in a non-VR display, only the top half
-     * is used.
-     */
-    public static final int MEDIA_STEREO_TOP_BOTTOM = 2;
+    public static final int MEDIA_STEREOSCOPIC = 1;
 
     // Basic vertex & fragment shaders to render a mesh with 3D position & 2D texture data.
     private static final String[] VERTEX_SHADER_CODE =
@@ -110,7 +103,7 @@ public final class Mesh {
     }
 
     /**
-     * Generates a 3D UV sphere for rendering monoscopic or stereoscopic video.
+     * Generates a 3D UV sphere for rendering media.
      * <p>
      * <p>This can be called on any thread. The returned {@link Mesh} isn't valid until
      * {@link #glInit(int)} is called.
@@ -175,32 +168,22 @@ public final class Mesh {
                     vertexData[CPV * v + 2] = (float) (radius * Math.cos(theta) * Math.cos(phi));
 
                     // Set vertex texture.x data.
-                    if (mediaFormat == MEDIA_STEREO_LEFT_RIGHT) {
-                        // For left-right media, each eye's x coordinate points to the left or right
-                        // half of the texture.
+                    if (mediaFormat == MEDIA_STEREOSCOPIC) {
+                        // For stereoscopic media, each eye's x coordinate points to the left or
+                        // right half of the texture.
                         vertexData[CPV * v + 3] = (i * quadWidthRads / horizontalFovRads) / 2;
                         vertexData[CPV * v + 5] = (i * quadWidthRads / horizontalFovRads) / 2 + .5f;
                     } else {
-                        // For top-bottom or monoscopic media, the eye's x spans the full width of
-                        // the texture.
+                        // For monoscopic media, the eye's x spans the full width of the texture.
                         vertexData[CPV * v + 3] = i * quadWidthRads / horizontalFovRads;
                         vertexData[CPV * v + 5] = i * quadWidthRads / horizontalFovRads;
                     }
 
                     // Set vertex texture.y data. The "1 - ..." is due to Canvas vs GL coords.
-                    if (mediaFormat == MEDIA_STEREO_TOP_BOTTOM) {
-                        // For top-bottom media, each eye's y coordinate points to the top or bottom
-                        // half of the texture.
-                        vertexData[CPV * v + 4] = 1 - (((j + k) * quadHeightRads /
-                                verticalFovRads) / 2 + .5f);
-                        vertexData[CPV * v + 6] = 1 - ((j + k) * quadHeightRads /
-                                verticalFovRads) / 2;
-                    } else {
-                        // For left-right or monoscopic media, the eye's y spans the full height of
-                        // the texture.
-                        vertexData[CPV * v + 4] = 1 - (j + k) * quadHeightRads / verticalFovRads;
-                        vertexData[CPV * v + 6] = 1 - (j + k) * quadHeightRads / verticalFovRads;
-                    }
+
+                    // The eye's y spans the full height of the texture.
+                    vertexData[CPV * v + 4] = 1 - (j + k) * quadHeightRads / verticalFovRads;
+                    vertexData[CPV * v + 6] = 1 - (j + k) * quadHeightRads / verticalFovRads;
                     v++;
 
                     // Break up the triangle strip with degenerate vertices by copying first and
@@ -223,7 +206,7 @@ public final class Mesh {
      *
      * @param textureId GL_TEXTURE_EXTERNAL_OES used for this mesh.
      */
-  /* package */ void glInit(int textureId) {
+    void glInit(int textureId) {
         this.textureId = textureId;
 
         program = Utils.compileProgram(VERTEX_SHADER_CODE, FRAGMENT_SHADER_CODE);
