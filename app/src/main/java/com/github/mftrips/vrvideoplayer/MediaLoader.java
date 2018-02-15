@@ -55,13 +55,13 @@ class MediaLoader {
     private static final int SPHERE_RADIUS_METERS = 50;
 
     /**
-     * These should be configured based on the video type. But this sample assumes 360 video.
+     * These should be configured based on the video type. But this app assumes 180 degree video.
      */
     private static final int DEFAULT_SPHERE_VERTICAL_DEGREES = 180;
     private static final int DEFAULT_SPHERE_HORIZONTAL_DEGREES = 180;
 
     /**
-     * The 360 x 180 sphere has 15 degree quads. Increase these if lines in your video look wavy.
+     * The 180 x 180 sphere has 15 degree quads. Increase these if lines in your video look wavy.
      */
     private static final int DEFAULT_SPHERE_ROWS = 12;
     private static final int DEFAULT_SPHERE_COLUMNS = 12;
@@ -70,6 +70,7 @@ class MediaLoader {
     private MediaPlayer mediaPlayer;
     // If the video fails to load, a placeholder panorama is rendered with error text.
     private String errorText;
+    // Monitors MediaPlayer and updates ScriptPlayer's timecode client.
     private SyncListener syncListener;
     // Due to the slow loading media times, it's possible to tear down the app before mediaPlayer is
     // ready. In that case, abandon all the pending work.

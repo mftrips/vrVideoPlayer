@@ -18,6 +18,7 @@ package com.github.mftrips.vrvideoplayer.rendering;
 
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.opengl.Matrix;
 
 import com.google.vr.sdk.base.Eye;
 
@@ -40,7 +41,6 @@ public final class Mesh {
      * eyes, respectively.
      */
     public static final int MEDIA_STEREOSCOPIC = 1;
-
     // Basic vertex & fragment shaders to render a mesh with 3D position & 2D texture data.
     private static final String[] VERTEX_SHADER_CODE =
             new String[]{
@@ -220,10 +220,11 @@ public final class Mesh {
     /**
      * Renders the mesh. This must be called on the GL thread.
      *
-     * @param mvpMatrix The Model View Projection matrix.
-     * @param eyeType   An {@link Eye.Type} value.
+     * @param mvpMatrix       The Model View Projection matrix.
+     * @param rotationOffsets The offsets from a recenter() call.
+     * @param eyeType         An {@link Eye.Type} value.
      */
-    void glDraw(float[] mvpMatrix, int eyeType) {
+    void glDraw(float[] mvpMatrix, float[] rotationOffsets, int eyeType) {
         // Configure shader.
         GLES20.glUseProgram(program);
         checkGlError();
@@ -231,6 +232,16 @@ public final class Mesh {
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glEnableVertexAttribArray(texCoordsHandle);
         checkGlError();
+
+        // Rotate matrix to recentered position
+        if (rotationOffsets[0] != 0f) {
+            Matrix.rotateM(mvpMatrix, 0, (float) Math.toDegrees(rotationOffsets[0]), 1f, 0f,
+                    0f);
+        }
+        if (rotationOffsets[1] != 0f) {
+            Matrix.rotateM(mvpMatrix, 0, (float) Math.toDegrees(rotationOffsets[1]), 0f, 1f,
+                    0f);
+        }
 
         GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);

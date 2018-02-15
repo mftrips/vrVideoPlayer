@@ -145,9 +145,10 @@ public final class SceneRenderer {
      * Draws the scene with a given eye pose and type.
      *
      * @param viewProjectionMatrix 16 element GL matrix.
+     * @param rotationOffsets      The offsets from a recenter() call.
      * @param eyeType              an {@link com.google.vr.sdk.base.Eye.Type} value
      */
-    public void glDrawFrame(float[] viewProjectionMatrix, int eyeType) {
+    public void glDrawFrame(float[] viewProjectionMatrix, float[] rotationOffsets, int eyeType) {
         if (!glConfigureScene()) {
             // displayMesh isn't ready.
             return;
@@ -168,7 +169,7 @@ public final class SceneRenderer {
         }
 
         if (displayMesh != null) {
-            displayMesh.glDraw(viewProjectionMatrix, eyeType);
+            displayMesh.glDraw(viewProjectionMatrix, rotationOffsets, eyeType);
         }
     }
 

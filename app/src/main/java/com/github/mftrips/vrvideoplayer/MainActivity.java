@@ -51,7 +51,6 @@ public class MainActivity extends GvrActivity {
     private static final int EXIT_FROM_VR_REQUEST_CODE = 42;
     //https://stackoverflow.com/a/11679788
     final Handler handler = new Handler();
-    private GvrView gvrView;
     Runnable longPressed = new Runnable() {
         public void run() {
             recenter();
@@ -61,6 +60,8 @@ public class MainActivity extends GvrActivity {
     // Given an intent with a media file and format, this will load the file and generate the mesh.
     private MediaLoader mediaLoader;
     private boolean isRecreating = false;
+    private boolean isRecentering = false;
+    private float[] rotationOffsets = {0f, 0f, 0f};
 
     /**
      * Configures the VR system.
@@ -75,7 +76,7 @@ public class MainActivity extends GvrActivity {
         syncListener = new SyncListener();
         mediaLoader = new MediaLoader(this);
 
-        gvrView = new GvrView(this);
+        GvrView gvrView = new GvrView(this);
 
         // Since the videos have fewer pixels per degree than the phones, reducing the render target
         // scaling factor reduces the work required to render the scene. This factor can be
@@ -224,7 +225,7 @@ public class MainActivity extends GvrActivity {
         if (vibrator != null) {
             vibrator.vibrate(50);
         }
-        gvrView.recenterHeadTracker();
+        isRecentering = true;
     }
 
     /**
@@ -248,13 +249,17 @@ public class MainActivity extends GvrActivity {
 
         @Override
         public void onNewFrame(HeadTransform headTransform) {
+            if (isRecentering) {
+                headTransform.getEulerAngles(rotationOffsets, 0);
+                isRecentering = false;
+            }
         }
 
         @Override
         public void onDrawEye(Eye eye) {
             Matrix.multiplyMM(viewProjectionMatrix, 0, eye.getPerspective(Z_NEAR, Z_FAR), 0, eye
                     .getEyeView(), 0);
-            scene.glDrawFrame(viewProjectionMatrix, eye.getType());
+            scene.glDrawFrame(viewProjectionMatrix, rotationOffsets, eye.getType());
         }
 
         @Override
