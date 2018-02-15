@@ -311,9 +311,9 @@ class MediaLoader {
 
             // Based on the Intent's data, load the appropriate media from disk.
             Uri uri = intent[0].getData();
-            syncListener.setFilename(uri.getLastPathSegment());
             MediaPlayer mp = MediaPlayer.create(context, uri);
             if (mp != null) {
+                syncListener.setFilename("file://" + uri.getLastPathSegment());
                 synchronized (MediaLoader.this) {
                     // This needs to be synchronized with the methods that could clear mediaPlayer.
                     mediaPlayer = mp;

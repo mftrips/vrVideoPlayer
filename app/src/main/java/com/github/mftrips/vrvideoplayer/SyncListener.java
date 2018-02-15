@@ -89,12 +89,8 @@ class SyncListener {
 
                 Log.d(TAG, "Listening ...");
                 while (!isDestroyed) {
-                    Socket incomingSocket = serverSocket.accept();
+                    socket = serverSocket.accept();
                     Log.d(TAG, "Connected.");
-                    if (socket != null) {
-                        socket.close();
-                    }
-                    socket = incomingSocket;
                     OutputStream outputStream = socket.getOutputStream();
                     printStream = new PrintStream(outputStream);
                     if (filename != null) {
