@@ -25,13 +25,21 @@ import android.graphics.Paint;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.support.annotation.AnyThread;
 import android.support.annotation.MainThread;
 import android.util.Log;
 import android.view.Surface;
+import android.webkit.MimeTypeMap;
 
 import com.github.mftrips.vrvideoplayer.rendering.Mesh;
 import com.github.mftrips.vrvideoplayer.rendering.SceneRenderer;
+
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * MediaLoader takes an Intent from the user and loads the specified media file.
@@ -82,6 +90,7 @@ class MediaLoader {
     private SceneRenderer sceneRenderer;
     // The displaySurface is configured after both GL initialization and media loading.
     private Surface displaySurface;
+    private File lastPath = new File(Environment.getExternalStorageDirectory(), "vrVideo");
 
     enum State {
         PLAYING,
@@ -98,8 +107,9 @@ class MediaLoader {
         LARGE
     }
 
-    MediaLoader(Context context) {
+    MediaLoader(Context context, SyncListener syncListener) {
         this.context = context;
+        this.syncListener = syncListener;
     }
 
     /**
@@ -153,14 +163,12 @@ class MediaLoader {
      * Loads custom videos based on the Intent or load the default video. See the Javadoc for this
      * class for information on generating a custom intent via adb.
      */
-    void handleIntent(Intent intent, SyncListener syncListener) {
-        this.syncListener = syncListener;
-
+    void handleIntent(Intent intent) {
         // Load the bitmap in a background thread to avoid blocking the UI thread. This operation
         // can take 100s of milliseconds.
         // Note that this sample doesn't cancel any pending mediaLoaderTasks since it assumes only
         // one Intent will ever be fired for a single Activity lifecycle.
-        MediaLoaderTask mediaLoaderTask = new MediaLoaderTask();
+        MediaLoaderFromIntentTask mediaLoaderTask = new MediaLoaderFromIntentTask();
         mediaLoaderTask.execute(intent);
     }
 
@@ -256,6 +264,14 @@ class MediaLoader {
     }
 
     @MainThread
+    synchronized void smallBack() {
+        if (mediaPlayer != null) {
+            int currentPosition = mediaPlayer.getCurrentPosition();
+            mediaPlayer.seekTo(currentPosition - 7 * 1000);
+        }
+    }
+
+    @MainThread
     synchronized void seek(Direction direction, Magnitude magnitude) {
         if (mediaPlayer != null) {
             int currentPosition = mediaPlayer.getCurrentPosition();
@@ -271,6 +287,16 @@ class MediaLoader {
                 mediaPlayer.seekTo(currentPosition - delta);
             }
         }
+    }
+
+    public void next() {
+        MediaLoaderFromLastPathTask mediaLoaderTask = new MediaLoaderFromLastPathTask();
+        mediaLoaderTask.execute(Direction.FORWARD);
+    }
+
+    public void previous() {
+        MediaLoaderFromLastPathTask mediaLoaderTask = new MediaLoaderFromLastPathTask();
+        mediaLoaderTask.execute(Direction.BACKWARD);
     }
 
     /**
@@ -293,7 +319,7 @@ class MediaLoader {
      * in the background.
      */
     @SuppressLint("StaticFieldLeak")
-    private class MediaLoaderTask extends AsyncTask<Intent, Void, Void> {
+    private class MediaLoaderFromIntentTask extends AsyncTask<Intent, Void, Void> {
         @Override
         protected Void doInBackground(Intent... intent) {
             if (intent == null || intent.length < 1 || intent[0] == null
@@ -313,7 +339,11 @@ class MediaLoader {
             Uri uri = intent[0].getData();
             MediaPlayer mp = MediaPlayer.create(context, uri);
             if (mp != null) {
-                syncListener.setFilename("file://" + uri.getLastPathSegment());
+                File file = new File(uri.getPath());
+                if (file.exists()) {
+                    MediaLoader.this.lastPath = file;
+                }
+                syncListener.setFilename(uri.getScheme() + "://" + uri.getLastPathSegment());
                 synchronized (MediaLoader.this) {
                     // This needs to be synchronized with the methods that could clear mediaPlayer.
                     mediaPlayer = mp;
@@ -330,6 +360,101 @@ class MediaLoader {
         @Override
         public void onPostExecute(Void unused) {
             syncListener.setMediaPlayer(mediaPlayer);
+        }
+    }
+
+    /**
+     * Helper class to media loading. This accesses the disk and decodes images so it needs to run
+     * in the background.
+     */
+    @SuppressLint("StaticFieldLeak")
+    private class MediaLoaderFromLastPathTask extends AsyncTask<Direction, Void, Void> {
+
+        class VideoFilter implements FilenameFilter {
+
+            @Override
+            public boolean accept(File file, String s) {
+                if (!file.canRead()) {
+                    return false;
+                }
+                String extension = MimeTypeMap.getFileExtensionFromUrl(s);
+                if (extension != null) {
+                    String mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+                    if (mimeType != null) {
+                        //noinspection RedundantIfStatement
+                        if (mimeType.matches("video/(mp4|webm)")) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        @Override
+        protected Void doInBackground(Direction... directions) {
+            Direction direction = directions[0];
+            if (direction == null) {
+                Log.e(TAG, "No direction provided");
+                return null;
+            }
+            if (!MediaLoader.this.lastPath.exists()) {
+                Log.e(TAG, "Last path does not exist");
+                return null;
+            }
+            File parent;
+            if (MediaLoader.this.lastPath.isDirectory()) {
+                parent = MediaLoader.this.lastPath;
+            } else {
+                parent = MediaLoader.this.lastPath.getParentFile();
+            }
+            if (!parent.canRead()) {
+                Log.e(TAG, "Unable to read from path");
+                return null;
+            }
+            File[] files = parent.listFiles(new VideoFilter());
+            if (files == null) {
+                Log.e(TAG, "Failed to retrieve available files");
+                return null;
+            } else if (files.length == 0) {
+                Log.e(TAG, "No available files");
+                return null;
+            }
+            File file;
+            if (MediaLoader.this.lastPath.isDirectory()) {
+                if (direction == Direction.FORWARD) {
+                    file = files[0];
+                } else {
+                    file = files[files.length - 1];
+                }
+            } else {
+                if (files.length == 1) {
+                    Log.e(TAG, "No additional files available");
+                    return null;
+                } else {
+                    List<File> fileList = new ArrayList<>(Arrays.asList(files));
+                    int index = fileList.indexOf(MediaLoader.this.lastPath);
+                    if (index < 0) {
+                        Log.e(TAG, "File no longer available");
+                        return null;
+                    } else {
+                        if (direction == Direction.FORWARD) {
+                            file = fileList.get((index + 1) % fileList.size());
+                        } else {
+                            file = fileList.get((index - 1) % fileList.size());
+                        }
+                    }
+                }
+            }
+            if (file == null) {
+                Log.e(TAG, "Failed to find a file");
+                return null;
+            }
+            Uri uri = Uri.fromFile(file);
+            Intent intent = new Intent(MediaLoader.this.context, MainActivity.class);
+            intent.setData(uri);
+            MediaLoader.this.context.startActivity(intent);
+            return null;
         }
     }
 }

@@ -74,7 +74,7 @@ public class MainActivity extends GvrActivity {
 
         isRecreating = false;
         syncListener = new SyncListener();
-        mediaLoader = new MediaLoader(this);
+        mediaLoader = new MediaLoader(this, syncListener);
 
         GvrView gvrView = new GvrView(this);
 
@@ -125,7 +125,7 @@ public class MainActivity extends GvrActivity {
      * Initializes the Activity only if the permission has been granted.
      */
     private void initializeActivity() {
-        mediaLoader.handleIntent(getIntent(), syncListener);
+        mediaLoader.handleIntent(getIntent());
     }
 
     @Override
@@ -157,7 +157,11 @@ public class MainActivity extends GvrActivity {
         if (event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
             recenter();
             return true;
-        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_A) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                recenter();
+            }
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_START) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 MediaLoader.State state = mediaLoader.playPause();
                 if (state == MediaLoader.State.PLAYING) {
@@ -167,21 +171,27 @@ public class MainActivity extends GvrActivity {
                 }
             }
             return true;
-        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PREVIOUS || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 mediaLoader.seek(MediaLoader.Direction.BACKWARD, MediaLoader.Magnitude.LARGE);
                 syncListener.update();
             }
             return true;
-        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_NEXT) {
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_NEXT || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 mediaLoader.seek(MediaLoader.Direction.FORWARD, MediaLoader.Magnitude.LARGE);
                 syncListener.update();
             }
             return true;
-        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_REWIND) {
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_REWIND || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 mediaLoader.seek(MediaLoader.Direction.BACKWARD, MediaLoader.Magnitude.SMALL);
+                syncListener.update();
+            }
+            return true;
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || event.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                mediaLoader.seek(MediaLoader.Direction.FORWARD, MediaLoader.Magnitude.SMALL);
                 syncListener.update();
             }
             return true;
@@ -190,11 +200,26 @@ public class MainActivity extends GvrActivity {
                 onDestroy();
             }
             return true;
-        } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_L1) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
-                mediaLoader.seek(MediaLoader.Direction.FORWARD, MediaLoader.Magnitude.SMALL);
+                mediaLoader.next();
+            }
+            return true;
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_R1) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                mediaLoader.previous();
+            }
+            return true;
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_X) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                mediaLoader.smallBack();
                 syncListener.update();
             }
+            return true;
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) {
+            return true;
+        } else //noinspection RedundantIfStatement
+            if (event.getKeyCode() == KeyEvent.KEYCODE_DEL) {
             return true;
         }
         return false;
@@ -250,6 +275,8 @@ public class MainActivity extends GvrActivity {
         @Override
         public void onNewFrame(HeadTransform headTransform) {
             if (isRecentering) {
+                // TODO: Derive from to quaternions to avoid gimbal lock?
+                // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
                 headTransform.getEulerAngles(rotationOffsets, 0);
                 isRecentering = false;
             }
