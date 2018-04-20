@@ -10,6 +10,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 
+//TODO: Merge this with HapticsManager
 class SyncListener {
     private static final String TAG = "SyncListener";
 
@@ -98,7 +99,7 @@ class SyncListener {
                     } else {
                         pause();
                     }
-                    while (!isDestroyed) {
+                    while (!isDestroyed && socket.isConnected()) {
                         if (!isPaused) {
                             update();
                         }
@@ -118,6 +119,9 @@ class SyncListener {
             if (socket != null && filename != null) {
                 Log.d(TAG, "Sending filename: " + filename);
                 printStream.println("C " + filename);
+                double duration = (double) SyncListener.this.mediaPlayer.getDuration() / 1000;
+                Log.d(TAG, "Sending duration: " + duration);
+                printStream.println("duration  " + duration);
                 isPaused = false;
             }
         }

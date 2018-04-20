@@ -6,8 +6,8 @@ android {
         applicationId "com.github.mftrips.vrvideoplayer"
         minSdkVersion 19
         targetSdkVersion 27
-        versionCode 5
-        versionName "1.0.4"
+        versionCode 6
+        versionName "1.0.5"
     }
     buildTypes {
         release {
@@ -20,7 +20,13 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'com.android.support:appcompat-v7:27.1.0'
+    implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'com.google.vr:sdk-audio:1.120.0'
     implementation 'com.google.vr:sdk-base:1.120.0'
+    implementation 'commons-io:commons-io:2.4'
+    implementation 'org.metafetish:buttplug-core:0.1.0-alpha1'
+    implementation 'org.metafetish:buttplug-client:0.1.0-alpha1'
+    implementation 'org.metafetish:buttplug-server:0.1.0-alpha1'
+    implementation 'org.metafetish:buttplug-server-bluetooth:0.1.0-alpha1'
+    implementation 'org.metafetish:haptic-file-reader:0.1.0-alpha1'
 }

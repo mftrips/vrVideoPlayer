@@ -38,6 +38,9 @@ import com.google.vr.sdk.base.HeadTransform;
 import com.google.vr.sdk.base.Viewport;
 import com.github.mftrips.vrvideoplayer.rendering.SceneRenderer;
 
+import org.metafetish.buttplug.core.ButtplugEvent;
+import org.metafetish.buttplug.core.ButtplugEventHandler;
+
 import javax.microedition.khronos.egl.EGLConfig;
 
 /**
@@ -63,6 +66,11 @@ public class MainActivity extends GvrActivity {
     private boolean isRecentering = false;
     private float[] rotationOffsets = {0f, 0f, 0f};
 
+    private ButtplugEventHandler scanHandler = new ButtplugEventHandler();
+    public ButtplugEventHandler getScanHandler() {
+        return this.scanHandler;
+    }
+
     /**
      * Configures the VR system.
      *
@@ -72,9 +80,12 @@ public class MainActivity extends GvrActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        isRecreating = false;
-        syncListener = new SyncListener();
-        mediaLoader = new MediaLoader(this, syncListener);
+        ButtplugApplication application = (ButtplugApplication) this.getApplication();
+        application.initialize(this);
+        HapticsManager hapticsManager = application.getHapticsManager();
+        this.isRecreating = false;
+        this.syncListener = new SyncListener();
+        this.mediaLoader = new MediaLoader(this, this.syncListener, hapticsManager);
 
         GvrView gvrView = new GvrView(this);
 
@@ -202,18 +213,23 @@ public class MainActivity extends GvrActivity {
             return true;
         } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_L1) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
-                mediaLoader.next();
+                mediaLoader.previous();
             }
             return true;
         } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_R1) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
-                mediaLoader.previous();
+                mediaLoader.next();
             }
             return true;
         } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_X) {
             if (event.getAction() == KeyEvent.ACTION_UP) {
                 mediaLoader.smallBack();
                 syncListener.update();
+            }
+            return true;
+        } else if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_Y) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                this.scanHandler.invoke(new ButtplugEvent());
             }
             return true;
         } else if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) {
@@ -274,11 +290,11 @@ public class MainActivity extends GvrActivity {
 
         @Override
         public void onNewFrame(HeadTransform headTransform) {
-            if (isRecentering) {
-                // TODO: Derive from to quaternions to avoid gimbal lock?
+            if (MainActivity.this.isRecentering) {
+                // TODO: Derive from quaternions to avoid gimbal lock?
                 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
-                headTransform.getEulerAngles(rotationOffsets, 0);
-                isRecentering = false;
+                headTransform.getEulerAngles(MainActivity.this.rotationOffsets, 0);
+                MainActivity.this.isRecentering = false;
             }
         }
 

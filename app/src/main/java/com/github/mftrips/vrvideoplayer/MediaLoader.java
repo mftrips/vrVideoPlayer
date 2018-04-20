@@ -80,6 +80,7 @@ class MediaLoader {
     private String errorText;
     // Monitors MediaPlayer and updates ScriptPlayer's timecode client.
     private SyncListener syncListener;
+    private HapticsManager hapticsManager;
     // Due to the slow loading media times, it's possible to tear down the app before mediaPlayer is
     // ready. In that case, abandon all the pending work.
     // This should be set or cleared in a synchronized manner.
@@ -90,7 +91,8 @@ class MediaLoader {
     private SceneRenderer sceneRenderer;
     // The displaySurface is configured after both GL initialization and media loading.
     private Surface displaySurface;
-    private File lastPath = new File(Environment.getExternalStorageDirectory(), "vrVideo");
+    private Uri lastUri;
+    private File lastPath = new File(Environment.getExternalStorageDirectory(), "vrVideos");
 
     enum State {
         PLAYING,
@@ -107,9 +109,10 @@ class MediaLoader {
         LARGE
     }
 
-    MediaLoader(Context context, SyncListener syncListener) {
+    MediaLoader(Context context, SyncListener syncListener, HapticsManager hapticsManager) {
         this.context = context;
         this.syncListener = syncListener;
+        this.hapticsManager = hapticsManager;
     }
 
     /**
@@ -214,7 +217,14 @@ class MediaLoader {
                     mediaPlayer.getVideoWidth(), mediaPlayer.getVideoHeight(), mesh);
             mediaPlayer.setSurface(displaySurface);
             // Start playback.
-            mediaPlayer.setLooping(true);
+            mediaPlayer.setLooping(false);
+            mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                @Override
+                public void onCompletion(MediaPlayer mediaPlayer) {
+                    mediaPlayer.start();
+                    MediaLoader.this.hapticsManager.onSeek();
+                }
+            });
             mediaPlayer.start();
         } else {
             // Handle the error case by creating a placeholder panorama.
@@ -239,6 +249,7 @@ class MediaLoader {
     synchronized void pause() {
         if (mediaPlayer != null) {
             mediaPlayer.pause();
+            this.hapticsManager.onPause();
         }
     }
 
@@ -246,6 +257,7 @@ class MediaLoader {
     synchronized void resume() {
         if (mediaPlayer != null) {
             mediaPlayer.start();
+            this.hapticsManager.onPlay();
         }
     }
 
@@ -254,12 +266,15 @@ class MediaLoader {
         if (mediaPlayer != null) {
             if (mediaPlayer.isPlaying()) {
                 mediaPlayer.pause();
+                this.hapticsManager.onPause();
                 return State.PAUSED;
             } else {
                 mediaPlayer.start();
+                this.hapticsManager.onPlay();
                 return State.PLAYING;
             }
         }
+        this.hapticsManager.onPause();
         return State.PAUSED;
     }
 
@@ -268,6 +283,7 @@ class MediaLoader {
         if (mediaPlayer != null) {
             int currentPosition = mediaPlayer.getCurrentPosition();
             mediaPlayer.seekTo(currentPosition - 7 * 1000);
+            this.hapticsManager.onSeek();
         }
     }
 
@@ -286,6 +302,7 @@ class MediaLoader {
             } else {
                 mediaPlayer.seekTo(currentPosition - delta);
             }
+            this.hapticsManager.onSeek();
         }
     }
 
@@ -311,6 +328,7 @@ class MediaLoader {
             mediaPlayer = null;
         }
         syncListener.destroy();
+        this.hapticsManager.onPause();
         isDestroyed = true;
     }
 
@@ -337,13 +355,14 @@ class MediaLoader {
 
             // Based on the Intent's data, load the appropriate media from disk.
             Uri uri = intent[0].getData();
+            MediaLoader.this.lastUri = uri;
+            MediaLoader.this.lastPath = null;
             MediaPlayer mp = MediaPlayer.create(context, uri);
             if (mp != null) {
                 File file = new File(uri.getPath());
                 if (file.exists()) {
                     MediaLoader.this.lastPath = file;
                 }
-                syncListener.setFilename(uri.getScheme() + "://" + uri.getLastPathSegment());
                 synchronized (MediaLoader.this) {
                     // This needs to be synchronized with the methods that could clear mediaPlayer.
                     mediaPlayer = mp;
@@ -360,6 +379,13 @@ class MediaLoader {
         @Override
         public void onPostExecute(Void unused) {
             syncListener.setMediaPlayer(mediaPlayer);
+            if (MediaLoader.this.lastPath != null) {
+                MediaLoader.this.hapticsManager.onMediaLoaded(MediaLoader.this.lastPath, MediaLoader.this.mediaPlayer);
+            }
+            if (MediaLoader.this.lastUri != null) {
+                Uri uri = MediaLoader.this.lastUri;
+                MediaLoader.this.syncListener.setFilename(uri.getScheme() + "://" + uri.getLastPathSegment());
+            }
         }
     }
 
@@ -439,10 +465,13 @@ class MediaLoader {
                         return null;
                     } else {
                         if (direction == Direction.FORWARD) {
-                            file = fileList.get((index + 1) % fileList.size());
+                            index += 1;
                         } else {
-                            file = fileList.get((index - 1) % fileList.size());
+                            index -= 1;
                         }
+                        index = index < 0 ? index + fileList.size() : index % fileList.size();
+                        Log.d(TAG, String.format("File %s of %s", index + 1, fileList.size()));
+                        file = fileList.get(index);
                     }
                 }
             }

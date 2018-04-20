@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/buttplug.server.managers.AndroidBluetoothManager/buttplug.server.managers.AndroidBluetoothManager.iml" filepath="$PROJECT_DIR$/buttplug.server.managers.AndroidBluetoothManager/buttplug.server.managers.AndroidBluetoothManager.iml" />
       <module fileurl="file://$PROJECT_DIR$/vrVideoPlayer.iml" filepath="$PROJECT_DIR$/vrVideoPlayer.iml" />
     </modules>
   </component>
