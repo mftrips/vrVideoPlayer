@@ -480,7 +480,8 @@ class MediaLoader {
                 return null;
             }
             Uri uri = Uri.fromFile(file);
-            Intent intent = new Intent(MediaLoader.this.context, MainActivity.class);
+            ButtplugApplication application = (ButtplugApplication) MediaLoader.this.context.getApplicationContext();
+            Intent intent = new Intent(MediaLoader.this.context, application.getActivity().getClass());
             intent.setData(uri);
             MediaLoader.this.context.startActivity(intent);
             return null;

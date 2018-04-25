@@ -23,6 +23,10 @@ public class ButtplugApplication extends Application implements IButtplugServerF
     private Handler handler = new Handler();
     private Activity activity;
 
+    public Activity getActivity() {
+        return this.activity;
+    }
+
     private ButtplugLogManager bpLogManager = new ButtplugLogManager();
     private IButtplugLog bpLogger = this.bpLogManager.getLogger(this.getClass().getSimpleName());
     private String serverName;
@@ -36,9 +40,17 @@ public class ButtplugApplication extends Application implements IButtplugServerF
     private boolean initialized = false;
     private boolean isScanning = false;
 
+    private float verticalOffset = 0.0f;
+    public float getVerticalOffset() {
+        return this.verticalOffset;
+    }
+    public void setVerticalOffset(float verticalOffset) {
+        this.verticalOffset = verticalOffset;
+    }
+
     public void initialize(Activity activity) {
         this.activity = activity;
-        ((MainActivity) activity).getScanHandler().addCallback(this.scanCallback);
+        ((CardboardActivity) activity).getScanHandler().addCallback(this.scanCallback);
         if (!this.initialized) {
             this.setServerDetails("vrVideoPlayer-server");
             this.client = new ButtplugEmbeddedClient("vrVideoPlayer-client", this);

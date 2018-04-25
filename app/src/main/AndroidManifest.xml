@@ -24,7 +24,8 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".MainActivity"
+            android:name=".CardboardActivity"
+            android:label="@string/cardboard_activity_label"
             android:configChanges="orientation|keyboardHidden|screenSize|uiMode|navigation"
             android:enableVrMode="@string/gvr_vr_mode_component"
             android:launchMode="singleTask"
@@ -47,6 +48,34 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="com.google.intent.category.CARDBOARD" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".DaydreamActivity"
+            android:label="@string/daydream_activity_label"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode|navigation"
+            android:enableVrMode="@string/gvr_vr_mode_component"
+            android:launchMode="singleTask"
+            android:resizeableActivity="false"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="video/mpeg4" />
+                <data android:mimeType="video/mp4" />
+                <data android:mimeType="video/webm" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="com.google.intent.category.DAYDREAM" />
+            </intent-filter>
+            <meta-data android:name="com.google.android.vr.icon" android:resource="@drawable/daydream_icon_foreground" />
+            <meta-data android:name="com.google.android.vr.icon_background" android:resource="@drawable/daydream_icon_background" />
         </activity>
     </application>
 </manifest>

@@ -49,7 +49,7 @@ import javax.microedition.khronos.egl.EGLConfig;
  * <p> The default intent for this Activity will load a 360 placeholder panorama. For more options
  * on how to load other media using a custom Intent, see {@link MediaLoader}.
  */
-public class MainActivity extends GvrActivity {
+public class CardboardActivity extends GvrActivity {
     private static final int READ_EXTERNAL_STORAGE_PERMISSION_ID = 1;
     private static final int EXIT_FROM_VR_REQUEST_CODE = 42;
     //https://stackoverflow.com/a/11679788
@@ -59,14 +59,16 @@ public class MainActivity extends GvrActivity {
             recenter();
         }
     };
-    private SyncListener syncListener;
+    protected ButtplugApplication application;
+    protected SyncListener syncListener;
     // Given an intent with a media file and format, this will load the file and generate the mesh.
-    private MediaLoader mediaLoader;
+    protected MediaLoader mediaLoader;
     private boolean isRecreating = false;
     private boolean isRecentering = false;
-    private float[] rotationOffsets = {0f, 0f, 0f};
+    protected float[] rotationOffsets = {0f, 0f, 0f};
+    protected float[] lastRotationOffsets = {0f, 0f, 0f};
 
-    private ButtplugEventHandler scanHandler = new ButtplugEventHandler();
+    protected ButtplugEventHandler scanHandler = new ButtplugEventHandler();
     public ButtplugEventHandler getScanHandler() {
         return this.scanHandler;
     }
@@ -80,8 +82,9 @@ public class MainActivity extends GvrActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        ButtplugApplication application = (ButtplugApplication) this.getApplication();
-        application.initialize(this);
+        this.application = (ButtplugApplication) this.getApplication();
+        this.rotationOffsets[0] = application.getVerticalOffset();
+        this.application.initialize(this);
         HapticsManager hapticsManager = application.getHapticsManager();
         this.isRecreating = false;
         this.syncListener = new SyncListener();
@@ -110,7 +113,7 @@ public class MainActivity extends GvrActivity {
         if (ContextCompat.checkSelfPermission(this, permission.READ_EXTERNAL_STORAGE) !=
                 PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
-                    MainActivity.this,
+                    CardboardActivity.this,
                     new String[]{permission.READ_EXTERNAL_STORAGE},
                     READ_EXTERNAL_STORAGE_PERMISSION_ID
             );
@@ -261,7 +264,7 @@ public class MainActivity extends GvrActivity {
         return false;
     }
 
-    void recenter() {
+    protected void recenter() {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (vibrator != null) {
             vibrator.vibrate(50);
@@ -290,12 +293,14 @@ public class MainActivity extends GvrActivity {
 
         @Override
         public void onNewFrame(HeadTransform headTransform) {
-            if (MainActivity.this.isRecentering) {
+            if (CardboardActivity.this.isRecentering) {
                 // TODO: Derive from quaternions to avoid gimbal lock?
                 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_Angles_Conversion
-                headTransform.getEulerAngles(MainActivity.this.rotationOffsets, 0);
-                MainActivity.this.isRecentering = false;
+                headTransform.getEulerAngles(CardboardActivity.this.rotationOffsets, 0);
+                CardboardActivity.this.application.setVerticalOffset(CardboardActivity.this.rotationOffsets[0]);
+                CardboardActivity.this.isRecentering = false;
             }
+            headTransform.getEulerAngles(CardboardActivity.this.lastRotationOffsets, 0);
         }
 
         @Override

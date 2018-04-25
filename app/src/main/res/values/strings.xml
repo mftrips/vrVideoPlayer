@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">vrVideoPlayer</string>
+    <string name="cardboard_activity_label">vrVideoPlayer (Cardboard)</string>
+    <string name="daydream_activity_label">vrVideoPlayer (Daydream)</string>
 </resources>
