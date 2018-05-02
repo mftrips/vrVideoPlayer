@@ -7,13 +7,26 @@ android {
         minSdkVersion 19
         targetSdkVersion 27
         versionCode 6
-        versionName "1.0.5-beta2"
+        versionName "1.0.5-beta3"
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             proguardFiles.add(file('../../proguard-gvr.txt'))
+        }
+    }
+    flavorDimensions "vr"
+    productFlavors {
+        cardboard {
+            dimension "vr"
+            applicationId "com.github.mftrips.vrvideoplayer.cardboard"
+            versionNameSuffix "-cardboard"
+        }
+        daydream {
+            dimension "vr"
+            applicationId "com.github.mftrips.vrvideoplayer.daydream"
+            versionNameSuffix "-daydream"
         }
     }
     lintOptions {

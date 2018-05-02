@@ -9,6 +9,8 @@ import org.metafetish.buttplug.core.Messages.VorzeA10CycloneCmd;
 import org.metafetish.haptic_file_reader.Commands.FunscriptCommand;
 import org.metafetish.haptic_file_reader.Commands.HapticCommand;
 import org.metafetish.haptic_file_reader.Commands.KiirooCommand;
+import org.metafetish.haptic_file_reader.Commands.VorzeCommand;
+import org.metafetish.haptic_file_reader.HapticDevice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,8 @@ public class HapticCommandToButtplugMessage {
                 add(launchCommands);
                 add(vibratorCommands);
             }});
+        } else if (commands.get(0) instanceof VorzeCommand) {
+            buttplugCommands = HapticCommandToButtplugMessage.vorzeToVorzeCommands(commands);
         }
         return buttplugCommands;
     }
@@ -93,18 +97,20 @@ public class HapticCommandToButtplugMessage {
             timeDelta = currentTime - lastTime;
 
             positionDelta = Math.abs(currentPosition - lastPosition);
-            speed = (int) Math.floor(25000 * Math.pow(((timeDelta * 90) / positionDelta), -1.05));
+            if (positionDelta != 0) {
+                speed = (int) Math.floor(25000 * Math.pow(((timeDelta * 90) / positionDelta), -1.05));
 
-            // Clamp speed on 20 <= x <= 80 so we don't crash or break the launch.
-            final int clampedSpeed = Math.min(Math.max(speed, 5), 90);
+                // Clamp speed on 20 <= x <= 80 so we don't crash or break the launch.
+                final int clampedSpeed = Math.min(Math.max(speed, 5), 90);
 
-            final int positionGoal = (int) Math.floor(((currentPosition / 99) * range) + ((99 - range) / 2));
-            // Set movement to happen at the PREVIOUS time, since we're moving toward
-            // the goal position with this command, and want to arrive there by the
-            // current time.
-            commands.put(lastTime, new ArrayList<ButtplugDeviceMessage>(){{
-                add(new FleshlightLaunchFW12Cmd(clampedSpeed, positionGoal));
-            }});
+                final int positionGoal = (int) Math.floor(((currentPosition / 99) * range) + ((99 - range) / 2));
+                // Set movement to happen at the PREVIOUS time, since we're moving toward
+                // the goal position with this command, and want to arrive there by the
+                // current time.
+                commands.put(lastTime, new ArrayList<ButtplugDeviceMessage>() {{
+                    add(new FleshlightLaunchFW12Cmd(clampedSpeed, positionGoal));
+                }});
+            }
             lastTime = funscriptCommand.getTime();
             lastPosition = funscriptCommand.getPosition();
         }
@@ -119,9 +125,6 @@ public class HapticCommandToButtplugMessage {
         final int density = 75;
         final SparseArray<List<ButtplugDeviceMessage>> commands = new SparseArray<>();
 
-        int currentTime;
-        int currentPosition;
-
         int timeDelta;
 
         int timeSteps;
@@ -135,28 +138,36 @@ public class HapticCommandToButtplugMessage {
                 lastPosition = funscriptCommand.getPosition();
                 continue;
             }
-            currentTime = funscriptCommand.getTime();
-            currentPosition = funscriptCommand.getPosition();
+            final int currentTime = funscriptCommand.getTime();
+            final int currentPosition = funscriptCommand.getPosition();
 
             timeDelta = currentTime - lastTime;
-            // Set a maximum time delta, otherwise we'll have ramps that can last
-            // multiple minutes.
-            if (timeDelta > 5000) {
-                timeDelta = 5000;
-                commands.put(lastTime + timeDelta + 1, new ArrayList<ButtplugDeviceMessage>(){{
-                    add(new SingleMotorVibrateCmd(0));
-                }});
-            }
+            if (timeDelta > 0) {
+                // Set a maximum time delta, otherwise we'll have ramps that can last
+                // multiple minutes.
+                if (timeDelta > 5000) {
+                    timeDelta = 5000;
+                    commands.put(lastTime + timeDelta + 1, new ArrayList<ButtplugDeviceMessage>(){{
+                        add(new SingleMotorVibrateCmd(0));
+                    }});
+                }
 
-            timeSteps = (int) Math.floor(timeDelta / density);
-            posStep = ((currentPosition - lastPosition) / 100) / timeSteps;
-            step = 0;
-            while (lastTime + (step * density) < currentTime) {
-                final double stepPos = (lastPosition * 0.01) + (posStep * step);
-                commands.put(lastTime + (step * density), new ArrayList<ButtplugDeviceMessage>(){{
-                    add(new SingleMotorVibrateCmd(stepPos));
-                }});
-                step += 1;
+                timeSteps = (int) Math.floor(timeDelta / density);
+                if (timeSteps > 0) {
+                    posStep = ((currentPosition - lastPosition) / 100) / timeSteps;
+                    step = 0;
+                    while (lastTime + (step * density) < currentTime) {
+                        final double stepPos = (lastPosition * 0.01) + (posStep * step);
+                        commands.put(lastTime + (step * density), new ArrayList<ButtplugDeviceMessage>(){{
+                            add(new SingleMotorVibrateCmd(stepPos));
+                        }});
+                        step += 1;
+                    }
+                } else {
+                    commands.put(currentTime, new ArrayList<ButtplugDeviceMessage>(){{
+                        add(new SingleMotorVibrateCmd(currentPosition / 100));
+                    }});
+                }
             }
             lastTime = currentTime;
             lastPosition = currentPosition;
@@ -194,12 +205,14 @@ public class HapticCommandToButtplugMessage {
 
             // We still need to calculate the Launch speed from the commands to set vorze speed.
             positionDelta = Math.abs(currentPosition - lastPosition);
-
-            final int speed = (int) Math.floor(25000 * Math.pow(((timeDelta * 90) / positionDelta), -1.05));
-            final boolean clockwise = lastPosition > currentPosition;
-            commands.put(currentTime, new ArrayList<ButtplugDeviceMessage>(){{
-                add(new VorzeA10CycloneCmd(speed, clockwise));
-            }});
+            if (positionDelta > 0) {
+                final int speed = (int) Math.floor(25000 * Math.pow(((timeDelta * 90) / positionDelta), -1.05));
+                final int clampedSpeed = Math.min(Math.max(speed, 0), 99);
+                final boolean clockwise = lastPosition > currentPosition;
+                commands.put(currentTime, new ArrayList<ButtplugDeviceMessage>(){{
+                    add(new VorzeA10CycloneCmd(clampedSpeed, clockwise));
+                }});
+            }
             lastTime = currentTime;
             lastPosition = currentPosition;
         }
@@ -220,6 +233,10 @@ public class HapticCommandToButtplugMessage {
         final SparseArray<List<ButtplugDeviceMessage>> commands = new SparseArray<>();
         for (HapticCommand hapticCommand : hapticCommands) {
             KiirooCommand kiirooCommand = (KiirooCommand) hapticCommand;
+            HapticDevice commandDevice = kiirooCommand.getDevice();
+            if (commandDevice != HapticDevice.ANY && commandDevice != HapticDevice.LINEAR) {
+                continue;
+            }
             // if this is our first element, save off and continue.
             if (lastTime < 0) {
                 lastTime = kiirooCommand.getTime();
@@ -286,6 +303,10 @@ public class HapticCommandToButtplugMessage {
 
         for (HapticCommand hapticCommand : hapticCommands) {
             KiirooCommand kiirooCommand = (KiirooCommand) hapticCommand;
+            HapticDevice commandDevice = kiirooCommand.getDevice();
+            if (commandDevice != HapticDevice.ANY && commandDevice != HapticDevice.VIBRATE) {
+                continue;
+            }
             if (lastTime == 0) {
                 lastTime = kiirooCommand.getTime();
                 lastPosition = 100 - (kiirooCommand.getPosition() * 25);
@@ -322,6 +343,28 @@ public class HapticCommandToButtplugMessage {
         // Make sure we stop the vibrator at the end
         commands.put(lastTime + 100, new ArrayList<ButtplugDeviceMessage>(){{
             add(new SingleMotorVibrateCmd(0));
+        }});
+        return commands;
+    }
+
+    private static SparseArray<List<ButtplugDeviceMessage>> vorzeToVorzeCommands(List<HapticCommand> hapticCommands) {
+        int lastTime = 0;
+
+        int currentTime;
+
+        final SparseArray<List<ButtplugDeviceMessage>> commands = new SparseArray<>();
+
+        for (HapticCommand hapticCommand : hapticCommands) {
+            final VorzeCommand vorzeCommand = (VorzeCommand) hapticCommand;
+            currentTime = vorzeCommand.getTime();
+            commands.put(currentTime, new ArrayList<ButtplugDeviceMessage>(){{
+                add(new VorzeA10CycloneCmd(vorzeCommand.getSpeed(), vorzeCommand.getDirection() != 0));
+            }});
+            lastTime = currentTime;
+        }
+        // Make sure we stop the Vorze at the end
+        commands.put(lastTime + 100, new ArrayList<ButtplugDeviceMessage>(){{
+            add(new VorzeA10CycloneCmd(0, true));
         }});
         return commands;
     }

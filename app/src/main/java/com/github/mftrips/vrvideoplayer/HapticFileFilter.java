@@ -13,12 +13,11 @@ public class HapticFileFilter implements FileFilter {
         add("json");
         add("js");
         add("launch");
-//        add("meta");
+        add("meta");
         add("txt");
         add("ini");
 //        add("beats");
-//        add("csv");
-//        add("ott");
+        add("csv");
     }};
     private File videoFile;
 
