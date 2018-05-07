@@ -1,7 +1,7 @@
 package com.github.mftrips.vrvideoplayer;
 
 import android.media.MediaPlayer;
-import android.util.SparseArray;
+import android.support.v4.util.SparseArrayCompat;
 
 import org.metafetish.buttplug.client.ButtplugClient;
 import org.metafetish.buttplug.core.ButtplugDeviceMessage;
@@ -10,6 +10,7 @@ import org.metafetish.buttplug.core.IButtplugLog;
 import org.metafetish.buttplug.core.Messages.DeviceMessageInfo;
 import org.metafetish.haptic_file_reader.Commands.HapticCommand;
 import org.metafetish.haptic_file_reader.HapticFileHandler;
+import org.metafetish.haptic_file_reader.Properties.HapticProperties;
 
 import java.io.File;
 import java.util.List;
@@ -29,7 +30,7 @@ public class HapticsManager {
 
     private MediaPlayer mediaPlayer;
 
-    private SparseArray<List<ButtplugDeviceMessage>> commands;
+    private SparseArrayCompat<List<ButtplugDeviceMessage>> commands;
 
     //TODO: Make offset configurable
     private int offset = 50;
@@ -53,11 +54,13 @@ public class HapticsManager {
             File[] hapticsFiles = parent.listFiles(new HapticFileFilter(videoFile));
             if (hapticsFiles.length != 0) {
                 List<HapticCommand> hapticCommands = null;
+                HapticProperties hapticProperties = null;
                 for (File hapticsFile : hapticsFiles) {
                     HapticFileHandler hapticFileHandler = HapticFileHandler.handleFile(hapticsFile);
                     if (hapticFileHandler != null) {
                         if (hapticCommands == null) {
                             hapticCommands = hapticFileHandler.getCommands();
+                            hapticProperties = hapticFileHandler.getProperties();
                         } else {
                             this.bpLogger.warn("Multiple parsers found");
                         }
@@ -67,7 +70,7 @@ public class HapticsManager {
                     this.bpLogger.debug("Haptics file parsed successfully");
                     this.bpLogger.debug(String.format("Paused?: %s", this.paused));
 
-                    this.commands = HapticCommandToButtplugMessage.hapticCommandToButtplugMessage(hapticCommands);
+                    this.commands = HapticCommandToButtplugMessage.hapticCommandToButtplugMessage(hapticCommands, hapticProperties);
                     if (!this.paused) {
                         this.onPlay();
                     }

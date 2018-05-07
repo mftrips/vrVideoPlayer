@@ -26,6 +26,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.support.annotation.AnyThread;
 import android.support.annotation.MainThread;
 import android.util.Log;
@@ -359,8 +360,21 @@ class MediaLoader {
             MediaLoader.this.lastPath = null;
             MediaPlayer mp = MediaPlayer.create(context, uri);
             if (mp != null) {
-                File file = new File(uri.getPath());
-                if (file.exists()) {
+                File file = null;
+                if(DocumentsContract.isDocumentUri(context, uri)) {
+                    if (uri.getAuthority().equals("com.android.externalstorage.documents")) {
+                        String[] parts = DocumentsContract.getDocumentId(uri).split(":");
+                        if (parts.length == 2) {
+                            file = new File(Environment.getExternalStorageDirectory(), parts[1]);
+                        }
+                    } else {
+                        Log.d(TAG, String.format("Authority: %s", uri.getAuthority()));
+                    }
+                } else {
+                    file = new File(uri.getPath());
+                }
+                if (file != null && file.exists()) {
+                    Log.d(TAG, String.format("lastPath: %s", file.getPath()));
                     MediaLoader.this.lastPath = file;
                 }
                 synchronized (MediaLoader.this) {
@@ -424,7 +438,7 @@ class MediaLoader {
                 Log.e(TAG, "No direction provided");
                 return null;
             }
-            if (!MediaLoader.this.lastPath.exists()) {
+            if (MediaLoader.this.lastPath == null || !MediaLoader.this.lastPath.exists()) {
                 Log.e(TAG, "Last path does not exist");
                 return null;
             }

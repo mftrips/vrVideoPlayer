@@ -7,7 +7,7 @@ android {
         minSdkVersion 19
         targetSdkVersion 27
         versionCode 6
-        versionName "1.0.5-beta3"
+        versionName "1.0.5-beta4"
     }
     buildTypes {
         release {
@@ -37,6 +37,7 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:27.1.1'
+    testImplementation 'junit:junit:4.12'
     implementation 'com.google.vr:sdk-base:1.140.0'
     implementation 'com.google.vr:sdk-controller:1.140.0'
     implementation 'commons-io:commons-io:2.4'
@@ -44,5 +45,5 @@ dependencies {
     implementation 'org.metafetish:buttplug-client:0.1.0-alpha1'
     implementation 'org.metafetish:buttplug-server:0.1.0-alpha1'
     implementation 'org.metafetish:buttplug-server-bluetooth:0.1.0-alpha1'
-    implementation 'org.metafetish:haptic-file-reader:0.1.0-alpha2'
+    implementation 'org.metafetish:haptic-file-reader:0.1.0-alpha4'
 }
